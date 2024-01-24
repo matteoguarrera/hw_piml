@@ -1,3 +1,11 @@
+# Berkeley files
+._*
+.idea
+*.tar.gz
+*.mat
+*.ipynb
+*.pkl
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
