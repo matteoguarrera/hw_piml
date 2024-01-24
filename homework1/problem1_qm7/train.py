@@ -24,8 +24,10 @@ def train(nnsgd, nnavg, R, Z, E_true, mb, hist, augment):
         # sample minibatch indices
         r = np.random.randint(0, len(R), [mb])
 
-        E_pred = nnsgd.forward((R[r], Z[r]))  # DONE: fill in
-        loss = 0.5*((E_pred - E_true[r])**2).mean(axis=0, keepdims=True)   # DONE: fill in, I choose a loss that is an array (1,1), instead of a scalar
+        E_pred = nnsgd.forward((R[r], Z[r]))  # TODO: fill in
+
+        # I choose a loss that is an array (1,1), instead of a scalar
+        loss = 0.5*((E_pred - E_true[r])**2).mean(axis=0, keepdims=True)   # TODO: fill in
         rmse = np.square(E_pred - E_true[r]).mean(axis=0) ** .5
         rmses.append(rmse)
         nnsgd.backward(loss)  # TODO: add argument to backward
@@ -69,7 +71,7 @@ if __name__ == '__main__':
     nnsgd = nn.Sequential([I, nn.Linear(I.nbout, 400), nn.Tanh(),
                            nn.Linear(400, 100), nn.Tanh(),
                            nn.Linear(100, O.nbinp), O
-                           ])  # DONE: fill in layers.
+                           ])  # TODO: fill in layers.
     nnavg = copy.deepcopy(nnsgd)
 
     '''Train neural network'''

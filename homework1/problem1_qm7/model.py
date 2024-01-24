@@ -57,7 +57,7 @@ class Output(Module):
 		return self.X*self.tstd+self.tmean
 
 	def backward(self,DY):
-		#DONE: fill in this function
+		#TODO: fill in this function
 		''' recall the derivative doesn't depend on the mean '''
 		# Maybe add a small eps in the division for stability
 		# Reverse operation of flatten in forward
@@ -71,7 +71,7 @@ class Linear(Module):
 		self.B = np.zeros([n]).astype('float32')
 
 	def forward(self,X):
-		#DONE: fill in this function
+		#TODO: fill in this function
 
 		self.X = X
 		Z = X@self.W + self.B
@@ -82,7 +82,7 @@ class Linear(Module):
 		return Z
 
 	def backward(self,DY):
-		#DONE: fill in this function
+		#TODO: fill in this function
 		'''
 		In the backwards pass functions, you’ll want to set the gradients of the weights of
 		that layer (i.e self.DW = ...), and return the gradient of the loss with respect to that layer’s input
@@ -113,11 +113,11 @@ class Linear(Module):
 class Tanh(Module):
 	
 	def forward(self,X):
-		#DONE: fill in this function
+		#TODO: fill in this function
 		'''Compute hyperbolic tangent element-wise. '''
 		return np.tanh(X)
 
 		
 	def backward(self,DY):
-		#DONE: fill in this function
+		#TODO: fill in this function
 		return 1 - np.tanh(DY)**2
