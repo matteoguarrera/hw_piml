@@ -19,7 +19,7 @@ def train(nnsgd, nnavg, R, Z, E_true, mb, hist, augment):
         if i > 0:     lr = 0.0000001
         if i > 500:   lr = 0.00000025
         if i > 2500:  lr = 0.0000005
-        if i > 12500: lr = 0.000001
+        #if i > 12500: lr = 0.000001  #bug in the code
 
         # sample minibatch indices
         r = np.random.randint(0, len(R), [mb])
