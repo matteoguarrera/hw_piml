@@ -5,6 +5,8 @@
 *.mat
 *.ipynb
 *.pkl
+*.npy
+*.pdf
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
