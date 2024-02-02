@@ -2,6 +2,34 @@ import torch
 import scipy.io
 import h5py
 import numpy as np
+from tqdm import tqdm
+
+from pde import burgers_pde_residual_fast, burgers_pde_residual
+
+def evaluate_pde_residual_train(train_loader, fast=True):
+    sample, target = next(iter(train_loader))
+
+    # Compute spacing
+    dx = sample[0, 0, 1, :] - sample[0, 0, 0, :]
+    dt = sample[0, 1, :, 1] - sample[0, 1, :, 0]
+    assert torch.max(dt) == torch.min(dt)
+    assert torch.max(dx) == torch.min(dx)
+    dx, dt = dx[0], dt[0]
+    assert dx > 0 and dt > 0
+
+    criterion = torch.nn.MSELoss()
+
+    loss_list = []
+    for sample, target in tqdm(train_loader):
+        if fast:
+            residual = burgers_pde_residual_fast(dx, dt, target)
+        else:
+            residual = burgers_pde_residual(dx, dt, target)
+
+        loss = criterion(residual, torch.zeros_like(residual))
+        loss_list.append(loss.item())
+    return loss_list
+
 
 class MatReader(object):
     def __init__(self, file_path, to_torch=True, to_cuda=False, to_float=True):

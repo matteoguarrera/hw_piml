@@ -20,15 +20,22 @@ class BurgersDataset(Dataset):
 
         # Discretized Grid (Nx, Nt, 2)
         self.grid = torch.from_numpy(
-            np.mgrid[0: 1: 1 / nx, 0: 1: 1 / nt]).permute(1, 2, 0).to(self.device)
+            np.mgrid[0: 1: 1 / nx, 0: 1: 1 / nt]).permute(1, 2, 0).to(self.device).float()
 
         # Quirk of data: Need to transpose x, t
         self.solutions = self.solutions.permute(0, 2, 1)
 
+        # Custom code
+        # To speed up unsqueeze and broadcast here the initial conditions
+        self.ic_broadcast = torch.broadcast_to(self.ic_vals.unsqueeze(-1),
+                                               (*self.ic_vals.shape, 101)).unsqueeze(-1).float()
+
     def __len__(self):
         # TODO
-        pass
+        return self.solutions.shape[0]
 
     def __getitem__(self, idx):
         # TODO
-        pass
+        # Broadcast initial condition
+        # I guess we should permute it since conv2D input is (N,Cin,H,W)
+        return torch.cat((self.grid, self.ic_broadcast[idx]), axis=-1).permute(2,0,1), self.solutions[idx]  # input cat initial condition
