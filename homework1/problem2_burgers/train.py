@@ -7,7 +7,7 @@ import numpy as np
 
 from data import BurgersDataset
 from model import ConvNet2D
-from pde import burgers_pde_residual, burgers_data_loss
+from pde import burgers_pde_residual, burgers_data_loss, burgers_pde_residual_fast
 from torch.utils.data import DataLoader
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -30,8 +30,18 @@ def train():
     train_loader = torch.utils.data.DataLoader(burgers_train, batch_size=batch_size, shuffle=True)
     test_loader = torch.utils.data.DataLoader(burgers_validation, batch_size=batch_size)
     model = ConvNet2D().to(device)
-    outputs = model(next(iter(train_loader))[0])  # check if it works
+    sample, target = next(iter(train_loader))
+
+    outputs = model(sample)  # check if it works
     print(outputs.size())
+
+    # Compute spacing
+    dx = sample[0, 0, 1, :] - sample[0, 0, 0, :]
+    dt = sample[0, 1, :, 1] - sample[0, 1, :, 0]
+    assert torch.max(dt) == torch.min(dt)
+    assert torch.max(dx) == torch.min(dx)
+    dx, dt = dx[0], dt[0]
+    assert dx > 0 and dt > 0
 
     optimizer = optim.Adam(model.parameters(), lr=lr)
     criterion = torch.nn.MSELoss()
@@ -47,11 +57,8 @@ def train():
             outputs = model(inputs)
 
             # loss = burgers_data_loss(outputs, labels)
-            u = labels
-            x = inputs[:, 0, :]  # not sure
-            t = inputs[:, :, 1]  # not sure
 
-            residual = burgers_pde_residual(x, t, u)
+            residual = burgers_pde_residual_fast(dx, dt, outputs)
             loss = criterion(residual, torch.zeros_like(residual))
 
             loss.backward()

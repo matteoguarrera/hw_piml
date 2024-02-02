@@ -2,6 +2,39 @@ import torch
 import torch.nn.functional as nnF
 
 
+
+def burgers_pde_residual_fast(dx, dt, u):
+    # def __per_sample_fast__(uu):
+    #     # [1:-1] is used to remove the first and the last
+    #     # It is done on the matrix xp0 and tp0
+    #     uu_xm1, uu_xp0, uu_xp1 = uu[:-2, 1:-1], uu[1:-1, 1:-1], uu[2:, 1:-1]
+    #     uu_tm1, uu_tp0, uu_tp1 = uu[1:-1, :-2], uu[1:-1, 1:-1], uu[1:-1, 2:]
+    #
+    #     u_x = (uu_xp1 - uu_xm1) / (2 * dx)
+    #     u_xx = (uu_xp1 - 2 * uu_xp0 + uu_xm1) / (dx ** 2)
+    #     u_t = (uu_tp1 - uu_tm1) / (2 * dt)
+    #
+    #     residual_sample = u_t + uu[1:-1, 1:-1] * u_x - nu * u_xx
+    #     return residual_sample
+    #
+    # # res = [__per_sample__(u[b]) for b in range(u.shape[0])]   # Loop over batches
+    # res = [__per_sample_fast__(u[b]).unsqueeze(0) for b in range(u.shape[0])]  # Loop over batches
+    # residual = torch.concatenate(res, dim=0)
+
+    nu = 0.01
+
+    # # Compute finite differences for interior points
+    #print(u.shape, dt, dx)
+    uu_xm1, uu_xp0, uu_xp1 = u[:, :-2, 1:-1], u[:, 1:-1, 1:-1], u[:, 2:, 1:-1]
+    uu_tm1, uu_tp0, uu_tp1 = u[:, 1:-1, :-2], u[:, 1:-1, 1:-1], u[:, 1:-1, 2:]
+
+    u_x = (uu_xp1 - uu_xm1) / (2 * dx)
+    u_xx = (uu_xp1 - 2 * uu_xp0 + uu_xm1) / (dx ** 2)
+    u_t = (uu_tp1 - uu_tm1) / (2 * dt)
+
+    residual = u_t + u[:, 1:-1, 1:-1] * u_x - nu * u_xx
+    return residual
+
 def burgers_pde_residual(dx, dt, u):
     # x: (B, Nx, Nt)
     # t: (B, Nx, Nt)
@@ -80,30 +113,6 @@ def burgers_pde_residual(dx, dt, u):
     return residual
 
 
-def burgers_pde_residual_fast(dx, dt, u):
-    def __per_sample_fast__(uu):
-        # [1:-1] is used to remove the first and the last
-        # It is done on the matrix xp0 and tp0
-        uu_xm1, uu_xp0, uu_xp1 = uu[:-2, 1:-1], uu[1:-1, 1:-1], uu[2:, 1:-1]
-        uu_tm1, uu_tp0, uu_tp1 = uu[1:-1, :-2], uu[1:-1, 1:-1], uu[1:-1, 2:]
-
-        u_x = (uu_xp1 - uu_xm1) / (2 * dx)
-        u_xx = (uu_xp1 - 2 * uu_xp0 + uu_xm1) / (dx ** 2)
-        u_t = (uu_tp1 - uu_tm1) / (2 * dt)
-
-        residual_sample = u_t + uu[1:-1, 1:-1] * u_x - nu * u_xx
-        return residual_sample
-
-    # Initialize the residual array
-    #  = torch.zeros_like(u)
-    nu = 0.01
-
-    # Compute finite differences for interior points
-    # res = [__per_sample__(u[b]) for b in range(u.shape[0])]   # Loop over batches
-    res = [__per_sample_fast__(u[b]).unsqueeze(0) for b in range(u.shape[0])]  # Loop over batches
-    residual = torch.concatenate(res, dim=0)
-
-    return residual
 
 def burgers_data_loss(predicted, target):
     # Relative L2 Loss
