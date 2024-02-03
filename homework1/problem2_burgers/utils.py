@@ -16,7 +16,7 @@ def evaluate_pde_residual_train(train_loader, fast=True):
     assert torch.max(dx) == torch.min(dx)
     dx, dt = dx[0], dt[0]
     assert dx > 0 and dt > 0
-
+    print('dx, dt: ', dx, dt )
     criterion = torch.nn.MSELoss()
 
     loss_list = []

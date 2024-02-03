@@ -121,5 +121,6 @@ def burgers_data_loss(predicted, target):
     # TODO
     output = torch.linalg.norm(predicted - target, dim = (1,2))/torch.linalg.norm(target, dim=(1, 2))  #
     output = torch.sum(output)
+    # output = torch.mean(output)
     return output
 
