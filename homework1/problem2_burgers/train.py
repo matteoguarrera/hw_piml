@@ -52,9 +52,9 @@ def train():
     print(f'Mean: {np.mean(loss_list)} \t Std: {np.std(loss_list)}')
 
     alpha = 1.0
-    loss_name = 'combined_loss_alpha'  #'data_loss' # 'residual_loss' , f'combined_loss_alpha'
+    loss_name = 'data_loss'  #'data_loss' # 'residual_loss' , f'combined_loss_alpha'
     print(f'Loss name: {loss_name}')
-    retrain = True
+    retrain = False
     fname = f'report/model_{loss_name}_{epochs}.pth'
     fname_loss = f'report/loss_{loss_name}_{epochs}.pkl'
 
@@ -104,18 +104,13 @@ def train():
 
     print('Done training')
     # Visualize the training loss
-    fig, (ax1, ax2) = plt.subplots(1,2, figsize=(5, 15))
+    fig, (ax1) = plt.subplots(1,1, figsize=(10, 4))
     ax1.plot(train_losses, label='Training Loss')
     ax1.grid()
+    plt.suptitle(f'{loss_name}', fontsize= 14)
     ax1.set_xlabel('Epochs')
     ax1.set_ylabel('Loss')
     ax1.legend()
-
-    ax2.plot(train_losses[-10:], label='Training Loss')
-    ax2.grid()
-    ax2.set_xlabel('Epochs')
-    ax2.set_ylabel('Loss')
-    ax2.legend()
 
     plt.savefig(f'report/training_{loss_name}.pdf')
     plt.show()
@@ -126,7 +121,7 @@ def train():
     sample_test, target_test = next(iter(test_loader))
     outputs_test = model(sample_test)
 
-    fig, ax = plt.subplots(2, 3, figsize=(10, 7))
+    fig, ax = plt.subplots(2, 3, figsize=(10, 8))
     for i in range(3):
 
         ax[0, i].imshow(outputs_test[i].detach().cpu().numpy())
@@ -137,7 +132,7 @@ def train():
 
 
     plt.tight_layout()
-    plt.suptitle(f'{loss_name}')
+    plt.suptitle(f'{loss_name}', fontsize= 14)
     plt.savefig(f'report/test_set_images_{loss_name}.pdf')
     plt.show()
 
@@ -157,11 +152,11 @@ def train():
 
         test_losses = np.array(test_losses)
 
-    print(f'Avg Test Data loss: {np.mean(test_losses[:, 0]):.3f}')
-    print(f'Std Test Data loss: {np.std(test_losses[:, 0]):.3f}')
+    print(f'Avg Test Data loss: {np.mean(test_losses[:, 0]):.5f}')
+    print(f'Std Test Data loss: {np.std(test_losses[:, 0]):.5f}')
 
-    print(f'Avg Test Residual loss: {np.mean(test_losses[:, 1]):.3f}')
-    print(f'Std Test Residual loss: {np.std(test_losses[:, 1]):.3f}')
+    print(f'Avg Test Residual loss: {np.mean(test_losses[:, 1]):.5f}')
+    print(f'Std Test Residual loss: {np.std(test_losses[:, 1]):.8f}')
 
     plt.plot(test_losses[:, 0], label='[Test] Data Loss')
     plt.plot(test_losses[:, 1], label='[Test] Residual Loss')
