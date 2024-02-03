@@ -52,7 +52,7 @@ def train():
     print(f'Mean: {np.mean(loss_list)} \t Std: {np.std(loss_list)}')
 
     alpha = 1.0
-    loss_name = 'residual_loss'  #'data_loss' # 'residual_loss' , f'combined_loss_alpha'
+    loss_name = 'combined_loss_alpha'  #'data_loss' # 'residual_loss' , f'combined_loss_alpha'
     print(f'Loss name: {loss_name}')
     retrain = True
     fname = f'report/model_{loss_name}_{epochs}.pth'
@@ -83,7 +83,9 @@ def train():
                     residual = burgers_pde_residual_fast(dx, dt, outputs)
                     loss = criterion(residual, torch.zeros_like(residual))
                 elif loss_name == 'combined_loss_alpha':
-                    pass
+                    loss = burgers_data_loss(outputs, labels)
+                    residual = burgers_pde_residual_fast(dx, dt, outputs)
+                    loss += criterion(residual, torch.zeros_like(residual))
 
                 loss.backward()
                 optimizer.step()
