@@ -28,6 +28,10 @@ def evaluate_pde_residual_train(train_loader, fast=True):
 
         loss = criterion(residual, torch.zeros_like(residual))
         loss_list.append(loss.item())
+
+        if loss > 1.0:
+            raise
+
     return loss_list
 
 

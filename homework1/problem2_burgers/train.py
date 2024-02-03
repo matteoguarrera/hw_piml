@@ -10,6 +10,8 @@ import pickle
 from data import BurgersDataset
 from model import ConvNet2D
 from pde import burgers_pde_residual, burgers_data_loss, burgers_pde_residual_fast
+from utils import evaluate_pde_residual_train
+
 from torch.utils.data import DataLoader
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -45,6 +47,9 @@ def train():
     assert dx > 0 and dt > 0
 
     criterion = torch.nn.MSELoss()
+
+    loss_list = evaluate_pde_residual_train(train_loader, fast=True)
+    print(f'Mean: {np.mean(loss_list)} \t Std: {np.std(loss_list)}')
 
     alpha = 1.0
     loss_name = 'residual_loss'  #'data_loss' # 'residual_loss' , f'combined_loss_alpha'

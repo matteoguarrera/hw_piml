@@ -24,7 +24,10 @@ def burgers_pde_residual_fast(dx, dt, u):
     nu = 0.01
 
     # # Compute finite differences for interior points
-    #print(u.shape, dt, dx)
+    # print(u.shape, dt, dx)
+    # uu_xp1, uu_xm1 = torch.roll(u, -1, dims=2),  torch.roll(u, 1, dims=2)
+    # uu_tp1, uu_tm1 = torch.roll(u, -1, dims=1),  torch.roll(u, 1, dims=1)
+
     uu_xm1, uu_xp0, uu_xp1 = u[:, :-2, 1:-1], u[:, 1:-1, 1:-1], u[:, 2:, 1:-1]
     uu_tm1, uu_tp0, uu_tp1 = u[:, 1:-1, :-2], u[:, 1:-1, 1:-1], u[:, 1:-1, 2:]
 
@@ -119,8 +122,8 @@ def burgers_data_loss(predicted, target):
     # Predicted: (B, Nx, Nt)
     # Target: (B, Nx, Nt)
     # TODO
-    output = torch.linalg.norm(predicted - target, dim = (1,2))/torch.linalg.norm(target, dim=(1, 2))  #
-    output = torch.sum(output)
-    # output = torch.mean(output)
+    output = torch.linalg.norm(predicted - target, dim=(1, 2))/torch.linalg.norm(target, dim=(1, 2))  #
+    # output = torch.sum(output)
+    output = torch.mean(output)  # to compare with the sum
     return output
 
