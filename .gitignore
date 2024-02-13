@@ -7,6 +7,9 @@
 *.pkl
 *.npy
 *.pdf
+*.lmdb*
+*.npz
+*.db
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
@@ -169,3 +172,4 @@ cython_debug/
 #  option (not recommended) you can uncomment the following to ignore the entire idea folder.
 #.idea/
 /homework1/problem2_burgers/report/
+
