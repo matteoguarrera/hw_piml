@@ -2,6 +2,8 @@ import torch
 import numpy as np
 import argparse
 from schnet import SchNet
+import torch_geometric.nn.models as geometric_models
+
 from lmdb_dataset import LmdbDataset, data_list_collater
 from torch.utils.data import DataLoader
 from tqdm import tqdm
@@ -9,7 +11,7 @@ from utils import L2MAELoss, rotate_3d_coordinates
 import wandb
 
 
-def train(data_dir, size, r_max, batch_size, lr, max_epochs, device):
+def train(data_dir, size, r_max, batch_size, lr, max_epochs, device, original_model):
 
     # # W&B Run
     # wandb.login()
@@ -41,13 +43,33 @@ def train(data_dir, size, r_max, batch_size, lr, max_epochs, device):
     test_dataloader = DataLoader(test_dataset, collate_fn=data_list_collater, \
                                  batch_size=batch_size, shuffle=False)
     # model
-    model = SchNet(cutoff=r_max)
+    if original_model:
+        model = geometric_models.SchNet(hidden_channels=128, num_filters=128,
+                                       num_interactions=6, num_gaussians=50,
+                                       cutoff=r_max, max_num_neighbors=32,
+                                       readout='add', dipole=False,
+                                       mean=None, std=None, )
+    else:
+        model = SchNet(cutoff=r_max)
     model = model.to(device)
+    torch.save(model.state_dict(), 'schnet_model_pretrain.pt')
 
     # optimization
     optimizer = torch.optim.Adam(model.parameters(), lr=lr)
     scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.2, patience=10)
     force_loss = L2MAELoss()
+
+    """
+        Batch size is 128, it seems that the first molecules have 21 atoms each.
+        [batch.y]     Ground truth energy
+        [batch.pos]   Ground truth position
+        [batch.atomic_numbers]    Concatenated atomic numbers, of all the batch
+        [batch.force]    Ground truth of forces per atom
+        [batch.batch]    Categorical indices of molecules, we are considering a batch of 128
+        
+        [batch.natoms]    Number of atoms per molecule
+        [batch.cell]       Seems to be ignored, in the forward pass arguments.
+    """
 
     epoch = 0
     while epoch < max_epochs and optimizer.param_groups[0]['lr'] > 1e-7:
@@ -55,22 +77,71 @@ def train(data_dir, size, r_max, batch_size, lr, max_epochs, device):
         print(f"Train Epoch {epoch + 1}")
         for batch in tqdm(train_dataloader):
             # TODO: fill in the training loop
-            print(batch)
+            # print(batch)
+            """
+            # Create a custom batch to check that the forces are equivariant                                           
+            degree_rot = np.random.rand(3, 1) * 360
+
+            rotated_pos = rotate_3d_coordinates(original_pos,
+                                                x_degrees=degree_rot[0],
+                                                y_degrees=degree_rot[1],
+                                                z_degrees=degree_rot[2])
+
+            rotated_forces = rotate_3d_coordinates(batch.force,
+                                                   x_degrees=degree_rot[0],
+                                                   y_degrees=degree_rot[1],
+                                                   z_degrees=degree_rot[2])
+            """
+            # batch.pos.requires_grad = True
+
             optimizer.zero_grad()
-            out_energy, out_forces = model.forward(batch.atomic_numbers, batch.pos, batch=None)
-            for name, value in batch:
-                if value.dtype == torch.long:
-                    print(name, torch.max(value))
-            # loss.backward()
-            # optimizer.step()
-            #
-            # print({"train_force_loss": loss, "lr": optimizer.param_groups[0]['lr']})
-            # wandb.log({"train_force_loss": loss, "lr": optimizer.param_groups[0]['lr']})
+            out = model.forward(batch.atomic_numbers.to(device),
+                                                   batch.pos.to(device), batch=batch.batch.to(device))
+            if geometric_models:
+                out_energy = out
+                positions = batch.pos.to(device)
+                # positions.requires_grad = True
+                out_forces = -torch.autograd.grad(out_energy.sum(), batch.pos.to(device), create_graph=True)[0]
+
+            else:
+                out_energy, out_forces = out
+            # To understand what's inside
+            # for name, value in batch:
+            #     if value.dtype == torch.long:
+            #         print(name, torch.max(value))
+
+            loss = force_loss(out_forces, batch.force.to(device))
+            loss.backward()
+            optimizer.step()
+
+            # print({"train_force_loss": loss.item(), "lr": optimizer.param_groups[0]['lr']})
+            wandb.log({"train_force_loss": loss, "lr": optimizer.param_groups[0]['lr']})
 
         model.eval()
         print(f"Val Epoch {epoch + 1}")
         for batch in val_dataloader:
             # TODO: fill in validation loop
+
+            # out_energy, out_forces = model.forward(batch.atomic_numbers.to(device),
+            #                                        batch.pos.to(device),
+            #                                        batch=batch.batch.to(device))
+            # batch.pos.requires_grad = True
+
+            out = model.forward(batch.atomic_numbers.to(device),
+                                batch.pos.to(device), batch=batch.batch.to(device))
+            if geometric_models:
+
+                out_energy = out
+                out_forces = -torch.autograd.grad(out_energy.sum(), batch.pos.to(device), create_graph=True)[0]
+
+            else:
+                out_energy, out_forces = out
+
+            loss = force_loss(out_forces,
+                              batch.force.to(device))
+            # loss = energy_loss(pred_energy, batch['y'])
+
+            mean_val_loss = loss.mean().item()
             wandb.log({"val_force_loss": loss})
         scheduler.step(mean_val_loss)
 
@@ -80,9 +151,26 @@ def train(data_dir, size, r_max, batch_size, lr, max_epochs, device):
     test_losses = []
     for batch in test_dataloader:
         # TODO: fill in test loop
+        # out_energy, out_forces = model.forward(batch.atomic_numbers.to(device),
+        #                                        batch.pos.to(device),
+        #                                        batch=batch.batch.to(device))
+        batch.pos.requires_grad = True
+
+        out = model.forward(batch.atomic_numbers.to(device),
+                            batch.pos.to(device), batch=batch.batch.to(device))
+        if geometric_models:
+            out_energy = out
+            out_forces = -torch.autograd.grad(out_energy.sum(), batch.pos.to(device), create_graph=True)[0]
+
+        else:
+            out_energy, out_forces = out
+
+        loss = force_loss(out_forces,
+                          batch.force.to(device))
+
         test_losses.append(loss.mean().item())
     wandb.log({"test_force_loss": sum(test_losses) / len(test_losses)})
-
+    torch.save(model.state_dict(), 'schnet_model.pt')
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -94,6 +182,10 @@ if __name__ == "__main__":
     parser.add_argument('--batch_size', type=int, default=128, help='Batch size')
     parser.add_argument('--max_epochs', type=int, default=1000, help='Number of epochs')
 
+    parser.add_argument('--geo_model', type=bool, default=False, help='Use geometric model')
+
     args = parser.parse_args()
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-    train(args.data_dir, args.size, args.r_max, args.batch_size, args.lr, args.max_epochs, device)
+    # device = 'cpu'
+    # print('DEBUG MODE')
+    train(args.data_dir, args.size, args.r_max, args.batch_size, args.lr, args.max_epochs, device, args.geo_model)
