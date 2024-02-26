@@ -95,16 +95,9 @@ def train(data_dir, size, r_max, batch_size, lr, max_epochs, device, original_mo
             # batch.pos.requires_grad = True
 
             optimizer.zero_grad()
-            out = model.forward(batch.atomic_numbers.to(device),
+            out_energy, out_forces = model.forward(batch.atomic_numbers.to(device),
                                                    batch.pos.to(device), batch=batch.batch.to(device))
-            if geometric_models:
-                out_energy = out
-                positions = batch.pos.to(device)
-                # positions.requires_grad = True
-                out_forces = -torch.autograd.grad(out_energy.sum(), batch.pos.to(device), create_graph=True)[0]
 
-            else:
-                out_energy, out_forces = out
             # To understand what's inside
             # for name, value in batch:
             #     if value.dtype == torch.long:
@@ -127,15 +120,8 @@ def train(data_dir, size, r_max, batch_size, lr, max_epochs, device, original_mo
             #                                        batch=batch.batch.to(device))
             # batch.pos.requires_grad = True
 
-            out = model.forward(batch.atomic_numbers.to(device),
+            out_energy, out_forces = model.forward(batch.atomic_numbers.to(device),
                                 batch.pos.to(device), batch=batch.batch.to(device))
-            if geometric_models:
-
-                out_energy = out
-                out_forces = -torch.autograd.grad(out_energy.sum(), batch.pos.to(device), create_graph=True)[0]
-
-            else:
-                out_energy, out_forces = out
 
             loss = force_loss(out_forces,
                               batch.force.to(device))
@@ -156,14 +142,8 @@ def train(data_dir, size, r_max, batch_size, lr, max_epochs, device, original_mo
         #                                        batch=batch.batch.to(device))
         batch.pos.requires_grad = True
 
-        out = model.forward(batch.atomic_numbers.to(device),
+        out_energy, out_forces = model.forward(batch.atomic_numbers.to(device),
                             batch.pos.to(device), batch=batch.batch.to(device))
-        if geometric_models:
-            out_energy = out
-            out_forces = -torch.autograd.grad(out_energy.sum(), batch.pos.to(device), create_graph=True)[0]
-
-        else:
-            out_energy, out_forces = out
 
         loss = force_loss(out_forces,
                           batch.force.to(device))
@@ -182,7 +162,7 @@ if __name__ == "__main__":
     parser.add_argument('--batch_size', type=int, default=128, help='Batch size')
     parser.add_argument('--max_epochs', type=int, default=1000, help='Number of epochs')
 
-    parser.add_argument('--geo_model', type=bool, default=False, help='Use geometric model')
+    # parser.add_argument('--geo_model', type=bool, default=False, help='Use geometric model')
 
     args = parser.parse_args()
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')

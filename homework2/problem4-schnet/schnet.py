@@ -168,13 +168,13 @@ class SchNet(torch.nn.Module):
         energy = scatter(h, batch, dim=0, reduce=self.readout)
 
         # TODO: compute forces
-        # forces = -1 * torch.autograd.grad(energy,
-        #                                   pos,
-        #                                   grad_outputs=torch.ones_like(energy),
-        #                                   create_graph=True,
-        #                                   retain_graph=True)[0]
+        forces = -1 * torch.autograd.grad(energy,
+                                          pos,
+                                          grad_outputs=torch.ones_like(energy),
+                                          create_graph=True,
+                                          retain_graph=True)[0]
 
-        forces = -torch.autograd.grad(energy.sum(), pos, create_graph=True)[0]
+        # forces = -torch.autograd.grad(energy.sum(), pos, create_graph=True)[0]
         assert forces.shape == pos.shape
         # errs = torch.abs(e.view(-1).cpu() - data.y.cpu())
         return energy, forces
