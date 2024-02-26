@@ -10,6 +10,7 @@
 *.lmdb*
 *.npz
 *.db
+*.pt
 
 *wandb*
 
