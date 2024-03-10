@@ -1,0 +1,7 @@
+torch
+numpy
+scipy
+matplotlib
+torchdiffeq
+comet_ml
+tqdm
