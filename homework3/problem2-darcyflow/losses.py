@@ -10,6 +10,8 @@ def data_fitting_loss(predicted: torch.Tensor, target: torch.Tensor, reduction: 
     :param reduction: str - reduction method for the loss. None returns a tensor of batch size
     :return: torch.Tensor - data fitting loss
     """
+    print('Target shape:', target.shape)
+
     difference = predicted - target
     batch_size = difference.shape[0]
     difference = difference.view(batch_size, -1)

@@ -1,10 +1,19 @@
 import matplotlib.pyplot as plt
 import torch
+import torch.nn as nn
 import numpy as np
 from math import ceil
 import numpy as np
 from scipy.special import ellipj, ellipk
 import matplotlib.pyplot as plt
+import torchdiffeq
+from copy import deepcopy
+from types import SimpleNamespace
+import scipy as sci
+from scipy.integrate import solve_ivp
+from torch.utils.data import Dataset, DataLoader
+from torchdiffeq import odeint
+
 
 def solution_pendulum_theta(grid, theta0):
     '''

@@ -79,8 +79,8 @@ def train(model: torch.nn.Module,
 
 def main():
     # TODO - Enable logging
-    COMET_ML_WORKSPACE = ''
-    COMET_ML_API_KEY = ''
+    COMET_ML_WORKSPACE = 'matteoguarrera'
+    COMET_ML_API_KEY = 'v4Rwk0HPjlTGVCsYGF0t9EKE8'
 
     parser = argparse.ArgumentParser('Train the 2D Darcy Flow model.')
     parser.add_argument('--data_dir', type=str, help='Path to the data file.', default='data/')
@@ -93,7 +93,9 @@ def main():
     parser.add_argument('--num_basis_functions', type=int, help='Number of basis functions for the constrained model.', default=4000)
     args = parser.parse_args()
 
-    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    print('CUDA IS MANUALLY DISABLED')
+    # device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    device = torch.device('cpu')
 
     # Dataloaders
     train_dataset = DarcyFlowDataset(os.path.join(args.data_dir, 'piececonst_r241_N1024_smooth1.mat'), device)
@@ -110,9 +112,11 @@ def main():
 
     # Optimizer
     optimizer = torch.optim.Adam(model.parameters(), lr=args.lr)
-    exp = comet_ml.Experiment(project_name="pi-ml-assignment3-darcy-flow",
-                            workspace=COMET_ML_WORKSPACE,
-                            api_key=COMET_ML_API_KEY)
+    # exp = comet_ml.Experiment(project_name="pi-ml-assignment3-darcy-flow",
+    #                         workspace=COMET_ML_WORKSPACE,
+    #                         api_key=COMET_ML_API_KEY)
+
+    exp = comet_ml.OfflineExperiment()
     exp.log_parameters({
         'lr': args.lr,
         'batch_size': args.batch_size,
