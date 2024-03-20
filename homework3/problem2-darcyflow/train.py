@@ -17,15 +17,17 @@ def eval(model, val_loader, exp: comet_ml.Experiment, epoch=0):
     running_val_data_loss = []
     model = copy.deepcopy(model)
 
-    with torch.no_grad():  # added for efficiency.
-        for mesh, diffusion_coeff, solution in tqdm(val_loader, desc=f'Val Epoch {epoch}'):
-            # Forward pass
-            pred = model(mesh, diffusion_coeff)
-            # Loss
-            data_loss = rel_data_loss(pred, solution)
-            pde_loss = darcy_pde_residual(pred, mesh, diffusion_coeff)
-            running_val_data_loss.append(data_loss.item())
-        avg_val_data_loss = sum(running_val_data_loss) / len(running_val_data_loss)
+    for mesh, diffusion_coeff, solution in tqdm(val_loader, desc=f'Val Epoch {epoch}'):
+        # Forward pass
+        pred = model(mesh, diffusion_coeff)
+        # Loss
+        data_loss = rel_data_loss(pred, solution)
+
+        # waste of computation, commmented out
+        # pde_loss = darcy_pde_residual(pred, mesh, diffusion_coeff)
+
+        running_val_data_loss.append(data_loss.item())
+    avg_val_data_loss = sum(running_val_data_loss) / len(running_val_data_loss)
 
     exp.log_metrics({
         'val_data_loss': avg_val_data_loss
@@ -34,7 +36,8 @@ def eval(model, val_loader, exp: comet_ml.Experiment, epoch=0):
     print(f'val_loss: {avg_val_data_loss:.3f}')
 
 
-def train(model: torch.nn.Module,
+def train(args,
+          model: torch.nn.Module,
           train_loader: DataLoader,
           val_loader: DataLoader,
           optimizer: torch.optim.Optimizer,
@@ -99,6 +102,9 @@ def main():
     parser.add_argument('--num_basis_functions', type=int, help='Number of basis functions for the constrained model.',
                         default=4000)
 
+    parser.add_argument('--precision', default=torch.float64, help='')
+    parser.add_argument('--log', action='store_true')
+
     args = parser.parse_args()
 
     # print('CUDA IS MANUALLY DISABLED')
@@ -106,32 +112,35 @@ def main():
     # device = torch.device('cpu')
 
     # Dataloaders
-    train_dataset = DarcyFlowDataset(os.path.join(args.data_dir, 'piececonst_r241_N1024_smooth1.mat'), device)
-    val_dataset = DarcyFlowDataset(os.path.join(args.data_dir, 'piececonst_r241_N1024_smooth2.mat'), device)
+    train_dataset = DarcyFlowDataset(os.path.join(args.data_dir, 'piececonst_r241_N1024_smooth1.mat'), device, args, debug=False)
+    val_dataset = DarcyFlowDataset(os.path.join(args.data_dir, 'piececonst_r241_N1024_smooth2.mat'), device, args, debug=False)
     train_loader = DataLoader(train_dataset, batch_size=args.batch_size, shuffle=True)
     val_loader = DataLoader(val_dataset, batch_size=args.batch_size, shuffle=False)
+    print('Overfit to train')
 
     # Model
     if not args.constrained:
-        model = ResNet(in_dim=3, hidden_dims=[64, 64, 64], out_dim=1).to(device).double()
+        model = ResNet(in_dim=3, hidden_dims=[64, 64, 64], out_dim=1).to(device).to(args.precision)
     else:
         model = ConstrainedModel(in_dim=3, hidden_dims=[64, 64, 64],
-                                 n_basis_functions=args.num_basis_functions).to(device).double()
+                                 n_basis_functions=args.num_basis_functions).to(device).to(args.precision)
 
     # Optimizer
     optimizer = torch.optim.Adam(model.parameters(), lr=args.lr)
-    exp = comet_ml.Experiment(project_name="pi-ml-assignment3-darcy-flow",
-                              workspace=COMET_ML_WORKSPACE,
-                              api_key=COMET_ML_API_KEY)
+    if args.log:
+        exp = comet_ml.Experiment(project_name="pi-ml-assignment3-darcy-flow",
+                                  workspace=COMET_ML_WORKSPACE,
+                                  api_key=COMET_ML_API_KEY)
+    else:
+        exp = comet_ml.OfflineExperiment()
 
-    # exp = comet_ml.OfflineExperiment()
     exp.log_parameters({
         'lr': args.lr,
         'batch_size': args.batch_size,
         'constrained': args.constrained,
     })
 
-    train(model, train_loader, val_loader, optimizer, constrained=args.constrained,
+    train(args, model, train_loader, val_loader, optimizer, constrained=args.constrained,
           epochs=args.epochs,
           exp=exp)
 

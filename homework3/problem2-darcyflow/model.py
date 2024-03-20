@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 import typing
-from darcyflow import darcy_residuals_no_forcing, mollify
+from darcyflow_akshai import darcy_residuals_no_forcing, mollify
 from linear_solve import solve_linear
 
 class ResidualLayer(nn.Module):
@@ -69,13 +69,15 @@ class ConstrainedModel(nn.Module):
         """
         # TODO
         # mollified solution
-        _basis = self.backbone(mesh, diffusion_coeffs)
+        _basis_t = self.backbone(mesh, diffusion_coeffs)  # out = (B x Nx x Ny x n_basis_functions)
 
-        A, b = self.setup_linear_system(_basis, mesh, diffusion_coeffs)
-        w = solve_linear(A.double(), b)
+        A, b = self.setup_linear_system(_basis_t, mesh, diffusion_coeffs)
+        w = solve_linear(A, b)  #8x4000    # solution x (B x N)
 
-        u = _basis.double() @ w.T  # to be checked
-        return u
+        out = torch.einsum('B x y k, B k-> B x y', _basis_t, w)
+        #u = _basis @ w  # to be checked
+        # out = torch.bmm(A, w.unsqueeze(-1)).reshape(-1, 37, 37, 1)
+        return out.unsqueeze(-1)
 
     def setup_linear_system(self, basis_functions, mesh, diffusion_coeffs):
         """
@@ -94,7 +96,7 @@ class ConstrainedModel(nn.Module):
         A = A.reshape(B, (Nx*Ny), n)
 
         # b is fixed by the exercise
-        # b = torch.ones((B, n), device=basis_functions.device)
-        b = torch.ones(B, Nx*Ny, device=basis_functions.device).double()
+        # b = torch.ones(B, n, device=basis_functions.device, dtype=A.dtype)
+        b = torch.ones(B, Nx*Ny, device=basis_functions.device, dtype=A.dtype)
 
         return A, b

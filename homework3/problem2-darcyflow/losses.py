@@ -1,6 +1,6 @@
 import torch
 
-from darcyflow import darcy_residuals_no_forcing
+from darcyflow_akshai import darcy_residuals_no_forcing
 
 def data_fitting_loss(predicted: torch.Tensor, target: torch.Tensor, reduction: str = 'mean') -> torch.Tensor:
     """

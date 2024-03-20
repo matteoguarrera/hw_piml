@@ -10,6 +10,8 @@ def solve_linear(A, b):
     :param b: torch.Tensor - vector b (B x M)
     :return: torch.Tensor - solution x (B x N)
     """
+    # assert A.shape[2] == b.shape[1] # documentation is wrong
+
     # We solve the normal form to avoid the need to compute the pseudo-inverse
     A_T = A.permute(0, 2, 1)
     normal_b = torch.bmm(A_T, b[..., None]).squeeze()
@@ -51,34 +53,46 @@ class LinearSolve(autograd.Function):
         # TODO
 
         PSI, ONE, omega = ctx.saved_tensors
-        def optimality_cond(PSI_, ONE_, omega_):
-            return PSI_ @ omega_ - ONE_
-
-        javrev_fn = torch.func.jacrev(optimality_cond, argnums=2)
-        jacrev_batched = torch.func.vmap(javrev_fn)
-        PSI_der = jacrev_batched(PSI, ONE, omega)
-
-        def optimality_fn(PSI_, ONE_):
-            return torch.einsum('b m n, b n -> bm', PSI_, omega) - ONE_
-
-        v = - upstream_grad
-        u = torch.linalg.solve(PSI_der, v.unsqueeze(-1)).squeeze(-1)
-
-        evaluations, vpj_fn = vjp(optimality_fn, PSI, ONE)
-
-        return vpj_fn(u)
+        # def optimality_cond(PSI_, ONE_, omega_):
+        #     return PSI_ @ omega_.T - ONE_
+        #
+        # javrev_fn = torch.func.jacrev(optimality_cond, argnums=2)
+        # jacrev_batched = torch.func.vmap(javrev_fn)
+        # PSI_der = jacrev_batched(PSI, ONE, omega)
+        #
+        # def optimality_fn(PSI_, ONE_):
+        #     return torch.einsum('b m n, b n -> bm', PSI_, omega) - ONE_
+        #
+        # v = - upstream_grad
+        # # u = torch.linalg.solve(PSI_der, v.unsqueeze(-1)).squeeze(-1)
+        # u = torch.linalg.solve(torch.transpose(PSI_der, 1, 2), v.unsqueeze(-1)).squeeze(-1)
+        #
+        # evaluations, vpj_fn = vjp(optimality_fn, PSI, ONE)
+        #
+        # return vpj_fn(u)
 
 
         #################### Mine ####################
-        # A = PSI
+        #A = PSI
+
+        # def optimality_cond(_PSI, _ONE):
+        #     return torch.bmm(_PSI, omega.unsqueeze(-1)).squeeze() - _ONE
         #
-        # def optimality_cond(PSI, ONE):
-        #     return torch.bmm(PSI, omega.unsqueeze(-1)).squeeze() - ONE
-        #
-        # u = torch.linalg.solve(-torch.transpose(A, 1, 2), upstream_grad)
+        # u = torch.linalg.solve(A, -upstream_grad)
         #
         # evaluations, funct_ = vjp(optimality_cond, PSI, ONE )
         #
         # return funct_(u)
+
+        #A = PSI
+
+        def optimality_cond(_PSI, _ONE):
+            return torch.bmm(_PSI, omega.unsqueeze(-1)).squeeze() - _ONE
+
+        u = torch.linalg.solve(-torch.transpose(PSI, 1, 2), upstream_grad)
+
+        evaluations, funct_ = vjp(optimality_cond, PSI, ONE)
+
+        return funct_(u)
 
 
