@@ -59,8 +59,8 @@ class ConstrainedModel(nn.Module):
     def __init__(self, in_dim: int, hidden_dims: typing.Tuple[int], n_basis_functions: int):
         super().__init__()
         # TODO 
-        pass
-    
+        self.backbone = ResNet(in_dim, hidden_dims, n_basis_functions)
+
     def forward(self, mesh: torch.Tensor, diffusion_coeffs: torch.Tensor) -> torch.Tensor:
         """
         :param mesh: torch.Tensor - mesh (B x Nx x Ny x 2)
@@ -68,8 +68,15 @@ class ConstrainedModel(nn.Module):
         :return: torch.Tensor - output of the model (B x Nx x Ny x 1)
         """
         # TODO
-        pass
-    
+        # mollified solution
+        _basis = self.backbone(mesh, diffusion_coeffs)
+
+        A, b = self.setup_linear_system(_basis, mesh, diffusion_coeffs)
+        w = solve_linear(A.double(), b)
+
+        u = _basis.double() @ w.T  # to be checked
+        return u
+
     def setup_linear_system(self, basis_functions, mesh, diffusion_coeffs):
         """
         Setup the linear system for the constrained model.
@@ -79,5 +86,15 @@ class ConstrainedModel(nn.Module):
         :return: torch.Tensor, torch.Tensor - A, b representing the linear system A\omega = b
         """
         # TODO
-        pass
-        
+
+        A = darcy_residuals_no_forcing(basis_functions, mesh=mesh, diffusion_coeff=diffusion_coeffs)
+        B, Nx, Ny, n = A.shape
+
+        # this is suggested in the pdf
+        A = A.reshape(B, (Nx*Ny), n)
+
+        # b is fixed by the exercise
+        # b = torch.ones((B, n), device=basis_functions.device)
+        b = torch.ones(B, Nx*Ny, device=basis_functions.device).double()
+
+        return A, b

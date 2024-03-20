@@ -106,6 +106,6 @@ def visualize_predictions(grid, x_test, x_preds_direct, x_preds_odenet, x_preds_
     ax2.tick_params(axis='both', which='minor', labelsize=14)
     ax2.set_ylabel(r'angular velocity, ${v}(t)$', fontsize=14)
     ax2.set_xlabel('time, t', fontsize=14)    
-    plt.savefig(f"predicted_pendulum_trajectories_timehorizon={time_horizon}_dt={dt}.png")
+    plt.savefig(f"plots/predicted_pendulum_trajectories_timehorizon={time_horizon}_dt={dt}.png")
 
 

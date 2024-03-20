@@ -11,7 +11,8 @@ def __central_differences_grad__(dx: torch.Tensor, dy: torch.Tensor, u: torch.Te
 
     u_x = (uu_xp1 - uu_xm1) / (2 * dx)
     # u_xx = (uu_xp1 - 2 * uu_xp0 + uu_xm1) / (dx ** 2)
-    u_y = (uu_ym1 - uu_yp1) / (2 * dy)
+    # u_y = (uu_ym1 - uu_yp1) / (2 * dy)
+    u_y = (uu_yp1 - uu_ym1) / (2 * dy)
 
     return u_x, u_y
 

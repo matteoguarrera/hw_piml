@@ -37,13 +37,13 @@ class DarcyFlowDataset(Dataset):
         solutions = data["sol"]
         n_samples = coeffs.shape[0]
         # We subsample to learn on a smaller grid
-        self.coeffs = torch.from_numpy(coeffs[:n_samples, ::subsample_freq, ::subsample_freq]).to(device).float()
-        self.solutions = torch.from_numpy(solutions[:n_samples, ::subsample_freq, ::subsample_freq]).to(device).float()
+        self.coeffs = torch.from_numpy(coeffs[:n_samples, ::subsample_freq, ::subsample_freq]).to(device).double()
+        self.solutions = torch.from_numpy(solutions[:n_samples, ::subsample_freq, ::subsample_freq]).to(device).double()
         # Mesh is (Nx, Ny, 2) where the 2 points correspond to x/y
         # All meshes are the same
         self.mesh = torch.from_numpy(darcy_twodgrid(
             self.subsampled_n_x, self.subsampled_n_x
-        )).to(device).float()  
+        )).to(device).double()
 
     def __len__(self) -> int:
         return self.coeffs.shape[0]

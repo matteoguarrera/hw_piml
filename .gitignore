@@ -11,7 +11,9 @@
 *.npz
 *.db
 *.pt
-
+*.png
+*.cometml-runs
+*/png/*
 *wandb*
 
 

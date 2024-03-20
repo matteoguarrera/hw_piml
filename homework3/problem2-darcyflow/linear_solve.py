@@ -1,7 +1,7 @@
 import torch
 from torch import autograd
 from functools import partial
-
+from torch.func import vjp
 
 def solve_linear(A, b):
     """
@@ -28,12 +28,17 @@ class LinearSolve(autograd.Function):
         A is guaranteed to be square. 
         NOTE: Use torch.linalg.solve to solve the linear system.
         :param ctx: autograd context
-        :param A: torch.Tensor - matrix A (B x N x N)
-        :param b: torch.Tensor - vector b (B x N)
-        :return: torch.Tensor - solution x (B x N)
+        :param A: torch.Tensor - matrix A (B x N x N)    # PSI
+        :param b: torch.Tensor - vector b (B x N)        # ONE,   1
+        :return: torch.Tensor - solution x (B x N)       # omega
         """
         # TODO 
-        pass
+        omega = torch.linalg.solve(A, b)
+        ctx.save_for_backward(A, b, omega)
+
+        assert omega.shape == b.shape
+
+        return omega
         
     @staticmethod
     def backward(ctx, upstream_grad):
@@ -44,4 +49,36 @@ class LinearSolve(autograd.Function):
         :return: torch.Tensor (B x N x N), torch.Tensor (B x N) - gradient of the linear solve with respect to A and b
         """
         # TODO
-        pass
+
+        PSI, ONE, omega = ctx.saved_tensors
+        def optimality_cond(PSI_, ONE_, omega_):
+            return PSI_ @ omega_ - ONE_
+
+        javrev_fn = torch.func.jacrev(optimality_cond, argnums=2)
+        jacrev_batched = torch.func.vmap(javrev_fn)
+        PSI_der = jacrev_batched(PSI, ONE, omega)
+
+        def optimality_fn(PSI_, ONE_):
+            return torch.einsum('b m n, b n -> bm', PSI_, omega) - ONE_
+
+        v = - upstream_grad
+        u = torch.linalg.solve(PSI_der, v.unsqueeze(-1)).squeeze(-1)
+
+        evaluations, vpj_fn = vjp(optimality_fn, PSI, ONE)
+
+        return vpj_fn(u)
+
+
+        #################### Mine ####################
+        # A = PSI
+        #
+        # def optimality_cond(PSI, ONE):
+        #     return torch.bmm(PSI, omega.unsqueeze(-1)).squeeze() - ONE
+        #
+        # u = torch.linalg.solve(-torch.transpose(A, 1, 2), upstream_grad)
+        #
+        # evaluations, funct_ = vjp(optimality_cond, PSI, ONE )
+        #
+        # return funct_(u)
+
+

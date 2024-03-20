@@ -5,45 +5,51 @@ from torch.utils.data import DataLoader
 import os
 from tqdm import tqdm
 import copy
+
 torch.manual_seed(0)
 
-from losses import rel_data_loss,  darcy_pde_residual
+from losses import rel_data_loss, darcy_pde_residual
 from data import DarcyFlowDataset
 from model import ResNet, ConstrainedModel
 
-def eval(model, val_loader, exp: comet_ml.Experiment, epoch = 0):
+
+def eval(model, val_loader, exp: comet_ml.Experiment, epoch=0):
     running_val_data_loss = []
     model = copy.deepcopy(model)
-    for mesh, diffusion_coeff, solution in tqdm(val_loader, desc=f'Val Epoch {epoch}'):
-        # Forward pass
-        pred = model(mesh, diffusion_coeff)
-        # Loss
-        data_loss = rel_data_loss(pred, solution)
-        pde_loss = darcy_pde_residual(pred, mesh, diffusion_coeff)
-        running_val_data_loss.append(data_loss.item())
-    avg_val_data_loss = sum(running_val_data_loss) / len(running_val_data_loss)
+
+    with torch.no_grad():  # added for efficiency.
+        for mesh, diffusion_coeff, solution in tqdm(val_loader, desc=f'Val Epoch {epoch}'):
+            # Forward pass
+            pred = model(mesh, diffusion_coeff)
+            # Loss
+            data_loss = rel_data_loss(pred, solution)
+            pde_loss = darcy_pde_residual(pred, mesh, diffusion_coeff)
+            running_val_data_loss.append(data_loss.item())
+        avg_val_data_loss = sum(running_val_data_loss) / len(running_val_data_loss)
+
     exp.log_metrics({
         'val_data_loss': avg_val_data_loss
     }, epoch=epoch)
     exp.flush()
+    print(f'val_loss: {avg_val_data_loss:.3f}')
 
-def train(model: torch.nn.Module, 
-            train_loader: DataLoader,
-            val_loader: DataLoader,
-            optimizer: torch.optim.Optimizer, 
-            constrained: bool,
-            epochs: int,
-            exp: comet_ml.Experiment):
-    
+
+def train(model: torch.nn.Module,
+          train_loader: DataLoader,
+          val_loader: DataLoader,
+          optimizer: torch.optim.Optimizer,
+          constrained: bool,
+          epochs: int,
+          exp: comet_ml.Experiment):
+
     with torch.no_grad():
         rng_state = torch.get_rng_state()
         eval(model, val_loader, exp)
         torch.set_rng_state(rng_state)
 
-
     for epoch in range(epochs):
         model.train()
-        for mesh, diffusion_coeff, solution in tqdm(train_loader, desc=f'Epoch {epoch+1}/{epochs}'):
+        for mesh, diffusion_coeff, solution in tqdm(train_loader, desc=f'Epoch {epoch + 1}/{epochs}'):
             optimizer.zero_grad()
             # Forward pass
             pred = model(mesh, diffusion_coeff)
@@ -69,13 +75,13 @@ def train(model: torch.nn.Module,
             })
 
         with torch.no_grad():
-            eval(model, val_loader, exp, epoch=epoch+1)
+            eval(model, val_loader, exp, epoch=epoch + 1)
         if constrained:
             for g in optimizer.param_groups:
                 g['lr'] *= .1
 
         exp.flush()
-    
+
 
 def main():
     # TODO - Enable logging
@@ -90,12 +96,14 @@ def main():
     parser.add_argument('--lr', type=float, help='Learning rate for the optimizer.', default=1e-3)
     parser.add_argument('--batch_size', type=int, help='Batch size for training.', default=8)
     parser.add_argument('--epochs', type=int, help='Number of epochs to train the model.', default=5)
-    parser.add_argument('--num_basis_functions', type=int, help='Number of basis functions for the constrained model.', default=4000)
+    parser.add_argument('--num_basis_functions', type=int, help='Number of basis functions for the constrained model.',
+                        default=4000)
+
     args = parser.parse_args()
 
-    print('CUDA IS MANUALLY DISABLED')
-    # device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-    device = torch.device('cpu')
+    # print('CUDA IS MANUALLY DISABLED')
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    # device = torch.device('cpu')
 
     # Dataloaders
     train_dataset = DarcyFlowDataset(os.path.join(args.data_dir, 'piececonst_r241_N1024_smooth1.mat'), device)
@@ -105,31 +113,29 @@ def main():
 
     # Model
     if not args.constrained:
-        model = ResNet(in_dim=3, hidden_dims=[64, 64, 64], out_dim=1).to(device)
+        model = ResNet(in_dim=3, hidden_dims=[64, 64, 64], out_dim=1).to(device).double()
     else:
-        model = ConstrainedModel(in_dim=3, hidden_dims=[64, 64, 64], 
-                                 n_basis_functions=args.num_basis_functions).to(device)
+        model = ConstrainedModel(in_dim=3, hidden_dims=[64, 64, 64],
+                                 n_basis_functions=args.num_basis_functions).to(device).double()
 
     # Optimizer
     optimizer = torch.optim.Adam(model.parameters(), lr=args.lr)
-    # exp = comet_ml.Experiment(project_name="pi-ml-assignment3-darcy-flow",
-    #                         workspace=COMET_ML_WORKSPACE,
-    #                         api_key=COMET_ML_API_KEY)
+    exp = comet_ml.Experiment(project_name="pi-ml-assignment3-darcy-flow",
+                              workspace=COMET_ML_WORKSPACE,
+                              api_key=COMET_ML_API_KEY)
 
-    exp = comet_ml.OfflineExperiment()
+    # exp = comet_ml.OfflineExperiment()
     exp.log_parameters({
         'lr': args.lr,
         'batch_size': args.batch_size,
         'constrained': args.constrained,
     })
 
-
     train(model, train_loader, val_loader, optimizer, constrained=args.constrained,
-        epochs=args.epochs,
-        exp=exp)
-    
-    exp.end()
+          epochs=args.epochs,
+          exp=exp)
 
+    exp.end()
 
 
 if __name__ == '__main__':
